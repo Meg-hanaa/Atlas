@@ -139,45 +139,42 @@ if not AUTH_DISABLED and not st.session_state.auth_token:
     col_left, col_right = st.columns([5, 6], gap="large")
 
     with col_left:
-        st.markdown(f"""
-        <div class="login-left-panel" style="background-image: url('data:image/png;base64,{bg_base64}');">
-            <div class="brand-header">
-                <span class="brand-icon">🗺️</span>
-                <span class="brand-name">Atlas</span>
-            </div>
-            <div class="brand-subtitle">Your AI-powered research companion.</div>
-            
-            <div class="features-list">
-                <div class="feature-item">
-                    <div class="feature-icon-wrapper purple-bg">
-                        <span class="feature-icon">📖</span>
-                    </div>
-                    <div class="feature-text">
-                        <div class="feature-title">Create books</div>
-                        <div class="feature-desc">Organize your ideas and sources in one place.</div>
-                    </div>
-                </div>
-                <div class="feature-item">
-                    <div class="feature-icon-wrapper green-bg">
-                        <span class="feature-icon">🔗</span>
-                    </div>
-                    <div class="feature-text">
-                        <div class="feature-title">Add sources</div>
-                        <div class="feature-desc">Bring in content from YouTube, PDFs, images, and more.</div>
-                    </div>
-                </div>
-                <div class="feature-item">
-                    <div class="feature-icon-wrapper blue-bg">
-                        <span class="feature-icon">✨</span>
-                    </div>
-                    <div class="feature-text">
-                        <div class="feature-title">AI insights</div>
-                        <div class="feature-desc">Let AI help you understand, summarize, and explore your content.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div class="login-left-panel" style="background-image: url('data:image/png;base64,{bg_base64}');">
+<div class="brand-header">
+<span class="brand-icon">🗺️</span>
+<span class="brand-name">Atlas</span>
+</div>
+<div class="brand-subtitle">Your AI-powered research companion.</div>
+<div class="features-list">
+<div class="feature-item">
+<div class="feature-icon-wrapper purple-bg">
+<span class="feature-icon">📖</span>
+</div>
+<div class="feature-text">
+<div class="feature-title">Create books</div>
+<div class="feature-desc">Organize your ideas and sources in one place.</div>
+</div>
+</div>
+<div class="feature-item">
+<div class="feature-icon-wrapper green-bg">
+<span class="feature-icon">🔗</span>
+</div>
+<div class="feature-text">
+<div class="feature-title">Add sources</div>
+<div class="feature-desc">Bring in content from YouTube, PDFs, images, and more.</div>
+</div>
+</div>
+<div class="feature-item">
+<div class="feature-icon-wrapper blue-bg">
+<span class="feature-icon">✨</span>
+</div>
+<div class="feature-text">
+<div class="feature-title">AI insights</div>
+<div class="feature-desc">Let AI help you understand, summarize, and explore your content.</div>
+</div>
+</div>
+</div>
+</div>""", unsafe_allow_html=True)
 
     with col_right:
         st.markdown("""
@@ -334,16 +331,7 @@ if not AUTH_DISABLED and not st.session_state.auth_token:
                 st.session_state.auth_mode = "Log in"
                 st.rerun()
 
-        # Footer API info styled
-        st.markdown(f"""
-        <div class="api-footer-box">
-            <div class="api-footer-icon">&lt;/&gt;</div>
-            <div class="api-footer-text">
-                API: <span class="api-url-highlight">{API_URL}</span><br/>
-                — tokens print to the API console when <span class="console-highlight">ATLAS_EMAIL_BACKEND=console</span>.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+
     st.stop()
 
 api = AtlasClient(
