@@ -1,0 +1,60 @@
+# Atlas — Render Blueprint (API + Streamlit)
+# Docs: https://render.com/docs/blueprint-spec
+#
+# One-click: Render Dashboard → New → Blueprint → connect this repo.
+# Secrets (sync: false) are prompted on first deploy; re-use values from .env.
+
+services:
+  - type: web
+    name: atlas-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: mkdir -p data
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: HINDSIGHT_API_KEY
+        sync: false
+      - key: HINDSIGHT_BASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ATLAS_SUBJECT
+        value: ml-notes
+      - key: ATLAS_AUTH_SECRET
+        generateValue: true
+      - key: ATLAS_API_PUBLIC_URL
+        value: https://atlas-api-9v91.onrender.com
+      - key: ATLAS_PUBLIC_URL
+        value: https://atlas-app-shnc.onrender.com
+      - key: ATLAS_GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: ATLAS_GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: ATLAS_GOOGLE_OAUTH_CALLBACK_URL
+        value: https://atlas-api-9v91.onrender.com/auth/google/callback
+      - key: ATLAS_CORS_ORIGINS
+        value: https://atlas-app-shnc.onrender.com
+      - key: ATLAS_EMAIL_BACKEND
+        value: console
+
+  - type: web
+    name: atlas-app
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --browser.gatherUsageStats=false
+    envVars:
+      - key: ATLAS_API_URL
+        value: https://atlas-api-9v91.onrender.com
+      - key: ATLAS_PUBLIC_URL
+        value: https://atlas-app-shnc.onrender.com
+      - key: ATLAS_SUBJECT
+        value: ml-notes
+      - key: ATLAS_GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: ATLAS_GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false

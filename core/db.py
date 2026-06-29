@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import os
 import sqlite3
 
-from config import DB_PATH
+from config import DB_PATH, ensure_data_dir
 
 
 def connect() -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    ensure_data_dir()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn

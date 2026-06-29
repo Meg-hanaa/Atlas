@@ -14,10 +14,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase, Mapped, relationship
 
 from auth.email import send_email
-from config import DB_PATH
+from config import DB_PATH, ensure_data_dir
 
-AUTH_DB_PATH = os.path.join(os.path.dirname(DB_PATH), "auth.db")
-DATABASE_URL = os.getenv("ATLAS_AUTH_DATABASE_URL", f"sqlite+aiosqlite:///{AUTH_DB_PATH}")
+AUTH_DB_PATH = os.path.abspath(os.path.join(os.path.dirname(DB_PATH), "auth.db"))
+ensure_data_dir()
+
+_auth_db_url_path = AUTH_DB_PATH.replace("\\", "/")
+DATABASE_URL = os.getenv(
+    "ATLAS_AUTH_DATABASE_URL",
+    f"sqlite+aiosqlite:///{_auth_db_url_path}",
+)
 AUTH_SECRET = os.getenv("ATLAS_AUTH_SECRET", "change-me-in-production-use-openssl-rand")
 JWT_LIFETIME = int(os.getenv("ATLAS_JWT_LIFETIME_SECONDS", "86400"))
 AUTH_DISABLED = os.getenv("ATLAS_AUTH_DISABLED", "").lower() in ("1", "true", "yes")

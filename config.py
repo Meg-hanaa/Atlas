@@ -19,6 +19,13 @@ setup_logging()
 
 DEFAULT_SUBJECT = os.getenv("ATLAS_SUBJECT", "ml-notes")
 DB_PATH = os.path.join(os.path.dirname(__file__), "data", "atlas.db")
+DATA_DIR = os.path.dirname(DB_PATH)
+
+
+def ensure_data_dir() -> str:
+    """Create data/ for SQLite, event logs, Piper voices, etc."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    return DATA_DIR
 
 
 class MissingConfigError(RuntimeError):
