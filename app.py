@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import sys
 import uuid
+from urllib.parse import urlparse
 
 import streamlit as st
 
@@ -26,6 +27,14 @@ from voice.meta import format_session_cost
 st.set_page_config(page_title="Atlas", page_icon="🗺️", layout="wide")
 
 API_URL = os.getenv("ATLAS_API_URL", "http://127.0.0.1:8000")
+
+
+def _looks_like_url(value: str) -> bool:
+    try:
+        parsed = urlparse(value.strip())
+        return bool(parsed.scheme and parsed.netloc)
+    except Exception:
+        return False
 
 
 def clear_subject_caches():
@@ -273,7 +282,12 @@ with st.sidebar:
     yt_url = st.text_input("Youtube URL / Transcript", disabled=not book_ready)
     if st.button("Add", key="add_youtube_btn", disabled=not book_ready) and yt_url and book_ready:
         try:
-            r = api.ingest_youtube(yt_url, SUBJECT)
+            value = yt_url.strip()
+            # Allow pasting transcript text directly in this field.
+            if _looks_like_url(value):
+                r = api.ingest_youtube(value, SUBJECT)
+            else:
+                r = api.ingest_leetcode(value, SUBJECT)
             st.session_state.notes_cache = None
             st.success(f"Added {r['source']}")
         except AtlasApiError as e:
@@ -676,10 +690,10 @@ with tab_analytics:
     st.caption("FSRS review history, cascadeflow costs, and recall heatmap")
     if st.button("Refresh analytics", key="refresh_analytics"):
         st.session_state.analytics_cache = api.analytics_dashboard(SUBJECT)
-    if "analytics_cache" not in st.session_state:
+    if "analytics_cache" not in st.session_state or st.session_state.analytics_cache is None:
         with st.spinner("Loading analytics…"):
             st.session_state.analytics_cache = api.analytics_dashboard(SUBJECT)
-    dash = st.session_state.analytics_cache
+    dash = st.session_state.analytics_cache or {}
     costs = dash.get("costs", {})
 
     c1, c2, c3, c4 = st.columns(4)
