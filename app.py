@@ -44,6 +44,10 @@ def _looks_like_url(value: str) -> bool:
         return False
 
 
+def render_html(html_code: str):
+    st.html(html_code)
+
+
 def clear_subject_caches():
     st.session_state.notes_cache = None
     st.session_state.roadmap_cache = None
@@ -139,50 +143,53 @@ if not AUTH_DISABLED and not st.session_state.auth_token:
     col_left, col_right = st.columns([5, 6], gap="large")
 
     with col_left:
-        st.markdown(f"""<div class="login-left-panel" style="background-image: url('data:image/png;base64,{bg_base64}');">
-<div class="brand-header">
-<span class="brand-icon">🗺️</span>
-<span class="brand-name">Atlas</span>
-</div>
-<div class="brand-subtitle">Your AI-powered research companion.</div>
-<div class="features-list">
-<div class="feature-item">
-<div class="feature-icon-wrapper purple-bg">
-<span class="feature-icon">📖</span>
-</div>
-<div class="feature-text">
-<div class="feature-title">Create books</div>
-<div class="feature-desc">Organize your ideas and sources in one place.</div>
-</div>
-</div>
-<div class="feature-item">
-<div class="feature-icon-wrapper green-bg">
-<span class="feature-icon">🔗</span>
-</div>
-<div class="feature-text">
-<div class="feature-title">Add sources</div>
-<div class="feature-desc">Bring in content from YouTube, PDFs, images, and more.</div>
-</div>
-</div>
-<div class="feature-item">
-<div class="feature-icon-wrapper blue-bg">
-<span class="feature-icon">✨</span>
-</div>
-<div class="feature-text">
-<div class="feature-title">AI insights</div>
-<div class="feature-desc">Let AI help you understand, summarize, and explore your content.</div>
-</div>
-</div>
-</div>
-</div>""", unsafe_allow_html=True)
+        render_html(f"""
+        <div class="login-left-panel" style="background-image: url('data:image/png;base64,{bg_base64}');">
+            <div class="brand-header">
+                <span class="brand-icon">🗺️</span>
+                <span class="brand-name">Atlas</span>
+            </div>
+            <div class="brand-subtitle">Your AI-powered research companion.</div>
+            
+            <div class="features-list">
+                <div class="feature-item">
+                    <div class="feature-icon-wrapper purple-bg">
+                        <span class="feature-icon">📖</span>
+                    </div>
+                    <div class="feature-text">
+                        <div class="feature-title">Create books</div>
+                        <div class="feature-desc">Organize your ideas and sources in one place.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon-wrapper green-bg">
+                        <span class="feature-icon">🔗</span>
+                    </div>
+                    <div class="feature-text">
+                        <div class="feature-title">Add sources</div>
+                        <div class="feature-desc">Bring in content from YouTube, PDFs, images, and more.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon-wrapper blue-bg">
+                        <span class="feature-icon">✨</span>
+                    </div>
+                    <div class="feature-text">
+                        <div class="feature-title">AI insights</div>
+                        <div class="feature-desc">Let AI help you understand, summarize, and explore your content.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """)
 
     with col_right:
-        st.markdown("""
+        render_html("""
         <div class="login-right-header">
             <h1 class="login-title">Sign in to Atlas</h1>
             <p class="login-subtitle">Welcome back! Please sign in to continue.</p>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         if "auth_mode" not in st.session_state:
             st.session_state.auth_mode = "Log in"
@@ -578,7 +585,7 @@ with st.sidebar:
 if not SUBJECT:
     # Render the landing page dashboard
     # 1. Header with logo and help button
-    st.markdown(f"""
+    render_html(f"""
     <div class="main-header">
         <div class="dashboard-logo-container">
             <span class="dashboard-logo-icon">🗺️</span>
@@ -591,7 +598,7 @@ if not SUBJECT:
     <div class="dashboard-api-subtitle">
         Create your first book in the sidebar or use our API: <span>{API_URL}</span>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     # 2. Welcome card with books illustration
     illustration_base64 = ""
@@ -600,7 +607,7 @@ if not SUBJECT:
         with open(ill_path, "rb") as f:
             illustration_base64 = base64.b64encode(f.read()).decode()
 
-    st.markdown(f"""
+    render_html(f"""
     <div class="welcome-card">
         <div class="welcome-card-content">
             <div class="welcome-card-sparkle">✨</div>
@@ -613,10 +620,10 @@ if not SUBJECT:
             <img src="data:image/png;base64,{illustration_base64}" class="welcome-card-image" alt="Books Illustration"/>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     # 3. How it works section
-    st.markdown("""
+    render_html("""
     <div class="section-title">How it works</div>
     <div class="how-it-works-grid">
         <div class="step-card">
@@ -647,17 +654,17 @@ if not SUBJECT:
             <div class="step-desc">Ask questions, get insights, and master your topics.</div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     # 4. Tip box
-    st.markdown("""
+    render_html("""
     <div class="tip-banner">
         <div class="tip-icon">💡</div>
         <div class="tip-content">
             <strong>Tip:</strong> Start with a clear subject name and add diverse sources for the best results.
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     st.stop()
 
