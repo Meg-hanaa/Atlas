@@ -1,0 +1,16 @@
+# HTTPS reverse proxy for Atlas VM deployment.
+# Set ATLAS_DOMAIN in .env (e.g. atlas.example.com) and point DNS to your VM.
+# Caddy obtains Let's Encrypt certificates automatically.
+
+{$ATLAS_DOMAIN:localhost} {
+	encode gzip
+
+	handle_path /api/* {
+		uri strip_prefix /api
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy streamlit:8501
+	}
+}

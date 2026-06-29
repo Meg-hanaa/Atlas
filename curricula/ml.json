@@ -1,0 +1,25 @@
+{
+  "_comment": "STARTING POINT — review and edit this outline; not an authoritative curriculum.",
+  "subject": "ml-notes",
+  "title": "Machine Learning Fundamentals",
+  "topics": [
+    {"id": "intro-ml", "name": "Introduction to Machine Learning", "category": "Foundations"},
+    {"id": "linear-regression", "name": "Linear Regression", "category": "Supervised Learning"},
+    {"id": "logistic-regression", "name": "Logistic Regression", "category": "Supervised Learning"},
+    {"id": "cost-function", "name": "Cost Function & Loss", "category": "Optimization"},
+    {"id": "gradient-descent", "name": "Gradient Descent", "category": "Optimization"},
+    {"id": "decision-trees", "name": "Decision Trees", "category": "Supervised Learning"},
+    {"id": "random-forest", "name": "Random Forest", "category": "Ensemble Methods"},
+    {"id": "xgboost", "name": "XGBoost / Boosting", "category": "Ensemble Methods"},
+    {"id": "svm", "name": "Support Vector Machines", "category": "Supervised Learning"},
+    {"id": "pca", "name": "PCA / Dimensionality Reduction", "category": "Unsupervised Learning"},
+    {"id": "ensemble-methods", "name": "Ensemble Methods", "category": "Ensemble Methods"},
+    {"id": "neural-networks", "name": "Neural Networks", "category": "Deep Learning"},
+    {"id": "cnn", "name": "Convolutional Neural Networks", "category": "Deep Learning"},
+    {"id": "regularization", "name": "Regularization & Overfitting", "category": "Foundations"},
+    {"id": "evaluation-metrics", "name": "Model Evaluation Metrics", "category": "Foundations"},
+    {"id": "numpy-basics", "name": "NumPy for ML", "category": "Tools"},
+    {"id": "kernel-trick", "name": "Kernel Trick", "category": "Supervised Learning"},
+    {"id": "generative-discriminative", "name": "Generative vs Discriminative Models", "category": "Foundations"}
+  ]
+}
