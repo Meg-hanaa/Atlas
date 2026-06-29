@@ -15,6 +15,7 @@ from api.services.study import submit_quiz
 from auth.deps import CurrentUser, user_id_from
 from flashcards.generator import apply_flashcard_difficulty_signal, generate_flashcard
 from memory.bank import extract_concepts_from_notes
+from memory.cross_subject import categories_with_concepts
 from scheduler.scheduler import get_concept, list_concepts, seed_concepts, todays_revision_summary, weak_concepts
 
 router = APIRouter(tags=["concepts"])
@@ -28,6 +29,11 @@ def concepts_list(user: CurrentUser, subject: str | None = None):
 @router.get("/concepts/weak")
 def concepts_weak(user: CurrentUser, subject: str | None = None, threshold: float = 0.6):
     return weak_concepts(user_id_from(user), resolve_subject(subject), threshold=threshold)
+
+
+@router.get("/concepts/by-category")
+def concepts_by_category(user: CurrentUser, subject: str | None = None):
+    return categories_with_concepts(user_id_from(user), resolve_subject(subject))
 
 
 @router.get("/concepts/{concept_id}")

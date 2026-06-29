@@ -37,6 +37,13 @@ def test_list_concepts(mock_list):
     assert r.json() == []
 
 
+@patch("api.routers.concepts.categories_with_concepts", return_value={"Optimization": []})
+def test_concepts_by_category(mock_by_cat):
+    r = client.get("/concepts/by-category", params={"subject": "ml-notes"})
+    assert r.status_code == 200
+    assert r.json() == {"Optimization": []}
+
+
 @patch("api.routers.notes.search_memories", return_value=["note one"])
 def test_search(mock_search):
     r = client.get("/search", params={"q": "gradient", "subject": "ml-notes"})
