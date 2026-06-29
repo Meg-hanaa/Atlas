@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import tempfile
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+
+logger = logging.getLogger(__name__)
 
 from api.deps import resolve_subject
 from api.schemas import (
@@ -37,8 +40,16 @@ def ingest_demo(user: CurrentUser, subject: str | None = None):
 @router.post("/youtube", response_model=IngestResult)
 def ingest_youtube_route(body: IngestYouTubeRequest, user: CurrentUser, subject: str | None = None):
     subj = resolve_subject(subject)
-    chunk = ingest_youtube(body.url, subj)
-    retain_ingested(user_id_from(user), chunk)
+    try:
+        chunk = ingest_youtube(body.url.strip(), subj)
+        retain_ingested(user_id_from(user), chunk)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("YouTube ingest failed")
+        raise HTTPException(status_code=500, detail=f"YouTube ingest failed: {exc}") from exc
     return IngestResult(source=chunk["source"])
 
 

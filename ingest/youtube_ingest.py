@@ -10,7 +10,10 @@ from datetime import datetime, timezone
 
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
+    CouldNotRetrieveTranscript,
+    IpBlocked,
     NoTranscriptFound,
+    RequestBlocked,
     TranscriptsDisabled,
     VideoUnavailable,
 )
@@ -48,6 +51,13 @@ def _fetch_captions(video_id: str) -> str | None:
             extra={"video_id": video_id, "ingest": "youtube"},
         )
         return None
+    except (IpBlocked, RequestBlocked) as exc:
+        raise RuntimeError(
+            "YouTube blocked transcript requests from this server (common on cloud hosts). "
+            "Ingest the video locally, or use a video with captions via the demo sources."
+        ) from exc
+    except CouldNotRetrieveTranscript as exc:
+        raise RuntimeError(f"Could not fetch YouTube captions: {exc}") from exc
     except VideoUnavailable as exc:
         raise ValueError(f"Video unavailable: {video_id}") from exc
 
@@ -132,6 +142,7 @@ def ingest_youtube(url: str, subject: str) -> dict:
 
     Returns: {"subject", "source", "content", "date", "transcription_method"}
     """
+    url = url.strip()
     video_id = _extract_video_id(url)
     source = f"youtube:{video_id}"
 
