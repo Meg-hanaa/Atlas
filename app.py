@@ -11,6 +11,7 @@ import os
 import sys
 import uuid
 from urllib.parse import urlparse
+import base64
 
 import streamlit as st
 
@@ -25,6 +26,12 @@ from ui.api_client import AtlasApiError, AtlasClient
 from voice.meta import format_session_cost
 
 st.set_page_config(page_title="Atlas", page_icon="🗺️", layout="wide")
+
+# Load and inject custom CSS stylesheet
+css_path = os.path.join(ROOT, "style.css")
+if os.path.exists(css_path):
+    with open(css_path, "r", encoding="utf-8") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 API_URL = os.getenv("ATLAS_API_URL", "http://127.0.0.1:8000")
 
@@ -115,87 +122,228 @@ if not AUTH_DISABLED and not st.session_state.auth_token:
         st.rerun()
 
 if not AUTH_DISABLED and not st.session_state.auth_token:
-    st.subheader("Sign in to Atlas")
     auth_client = AtlasClient(base_url=API_URL, session_id=st.session_state.mentor_session_id)
 
     query = st.query_params
     default_verify = query.get("verify", "")
     default_reset = query.get("reset", "")
 
-    auth_mode = st.radio(
-        "Account",
-        ["Log in", "Register", "Verify email", "Forgot / reset password"],
-        horizontal=True,
-        label_visibility="collapsed",
-    )
+    # Load background image for the left panel
+    bg_base64 = ""
+    bg_path = os.path.join(ROOT, "assets", "left_panel_bg.png")
+    if os.path.exists(bg_path):
+        with open(bg_path, "rb") as f:
+            bg_base64 = base64.b64encode(f.read()).decode()
 
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
+    # Split screen columns
+    col_left, col_right = st.columns([5, 6], gap="large")
 
-    if auth_mode == "Verify email":
-        verify_token = st.text_input("Verification token", value=default_verify)
-        if st.button("Verify email", type="primary") and verify_token:
-            try:
-                auth_client.verify_email(verify_token)
-                st.success("Email verified — you can log in now.")
-            except AtlasApiError as e:
-                st.error(str(e))
-        if st.button("Resend verification email") and email:
-            try:
-                auth_client.request_verify(email)
-                st.info("Verification email sent (check console if using console backend).")
-            except AtlasApiError as e:
-                st.error(str(e))
+    with col_left:
+        st.markdown(f"""
+        <div class="login-left-panel" style="background-image: url('data:image/png;base64,{bg_base64}');">
+            <div class="brand-header">
+                <span class="brand-icon">🗺️</span>
+                <span class="brand-name">Atlas</span>
+            </div>
+            <div class="brand-subtitle">Your AI-powered research companion.</div>
+            
+            <div class="features-list">
+                <div class="feature-item">
+                    <div class="feature-icon-wrapper purple-bg">
+                        <span class="feature-icon">📖</span>
+                    </div>
+                    <div class="feature-text">
+                        <div class="feature-title">Create books</div>
+                        <div class="feature-desc">Organize your ideas and sources in one place.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon-wrapper green-bg">
+                        <span class="feature-icon">🔗</span>
+                    </div>
+                    <div class="feature-text">
+                        <div class="feature-title">Add sources</div>
+                        <div class="feature-desc">Bring in content from YouTube, PDFs, images, and more.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon-wrapper blue-bg">
+                        <span class="feature-icon">✨</span>
+                    </div>
+                    <div class="feature-text">
+                        <div class="feature-title">AI insights</div>
+                        <div class="feature-desc">Let AI help you understand, summarize, and explore your content.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    elif auth_mode == "Forgot / reset password":
-        reset_token = st.text_input("Reset token (from email)", value=default_reset)
-        new_password = st.text_input("New password", type="password")
-        col_forgot, col_reset = st.columns(2)
-        if col_forgot.button("Send reset email") and email:
-            try:
-                auth_client.forgot_password(email)
-                st.info("Reset email sent (check console if using console backend).")
-            except AtlasApiError as e:
-                st.error(str(e))
-        if col_reset.button("Reset password", type="primary") and reset_token and new_password:
-            try:
-                auth_client.reset_password(reset_token, new_password)
-                st.success("Password updated — log in with your new password.")
-            except AtlasApiError as e:
-                st.error(str(e))
+    with col_right:
+        st.markdown("""
+        <div class="login-right-header">
+            <h1 class="login-title">Sign in to Atlas</h1>
+            <p class="login-subtitle">Welcome back! Please sign in to continue.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    else:
-        col_login, col_reg = st.columns(2)
-        if col_login.button("Log in", type="primary") and email and password:
-            try:
-                st.session_state.auth_token = auth_client.login(email, password)
+        if "auth_mode" not in st.session_state:
+            st.session_state.auth_mode = "Log in"
+
+        modes = ["Log in", "Register", "Verify email", "Forgot / reset password"]
+        default_index = modes.index(st.session_state.auth_mode) if st.session_state.auth_mode in modes else 0
+
+        auth_mode = st.radio(
+            "Account",
+            modes,
+            index=default_index,
+            horizontal=True,
+            label_visibility="collapsed",
+            key="auth_mode_selector",
+        )
+        st.session_state.auth_mode = auth_mode
+
+        if st.session_state.auth_mode == "Log in":
+            email = st.text_input("Email", placeholder="Enter your email address", key="login_email")
+            password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
+
+            # Checkbox and Forgot Password link styled
+            c_rem, c_forgot = st.columns([1, 1])
+            with c_rem:
+                remember_me = st.checkbox("Remember me", value=True, key="login_remember")
+            with c_forgot:
+                st.markdown('<div class="forgot-link-container">', unsafe_allow_html=True)
+                if st.button("Forgot your password?", key="btn_forgot_pwd", type="secondary"):
+                    st.session_state.auth_mode = "Forgot / reset password"
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            if st.button("Log in", type="primary", use_container_width=True, key="btn_login_submit"):
+                if email and password:
+                    try:
+                        st.session_state.auth_token = auth_client.login(email, password)
+                        st.rerun()
+                    except AtlasApiError as e:
+                        st.error(str(e))
+                else:
+                    st.error("Please enter email and password.")
+
+            st.markdown('<div class="login-divider"><span>or</span></div>', unsafe_allow_html=True)
+
+            if GOOGLE_OAUTH_ENABLED:
+                google_url = f"{API_URL.rstrip('/')}/auth/google/start"
+                st.markdown(f"""
+                <a href="{google_url}" target="_self" class="google-signin-btn">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo"/>
+                    Sign in with Google
+                </a>
+                """, unsafe_allow_html=True)
+
+            # Footer
+            st.markdown('<div class="register-footer-text">Don\'t have an account? <span class="link-span">Register</span></div>', unsafe_allow_html=True)
+            if st.button("Register an account", key="btn_switch_register", type="secondary", use_container_width=True):
+                st.session_state.auth_mode = "Register"
                 st.rerun()
-            except AtlasApiError as e:
-                st.error(str(e))
-        if col_reg.button("Register") and email and password:
-            try:
-                auth_client.register(email, password)
-                st.session_state.auth_token = auth_client.login(email, password)
-                st.success("Account created — check email/console for verification token.")
+
+        elif st.session_state.auth_mode == "Register":
+            email = st.text_input("Email", placeholder="Enter your email address", key="register_email")
+            password = st.text_input("Password", type="password", placeholder="Enter your password", key="register_password")
+
+            if st.button("Register", type="primary", use_container_width=True, key="btn_register_submit"):
+                if email and password:
+                    try:
+                        auth_client.register(email, password)
+                        st.session_state.auth_token = auth_client.login(email, password)
+                        st.success("Account created — check email/console for verification token.")
+                        st.rerun()
+                    except AtlasApiError as e:
+                        st.error(str(e))
+                else:
+                    st.error("Please enter email and password.")
+
+            st.markdown('<div class="login-divider"><span>or</span></div>', unsafe_allow_html=True)
+
+            if GOOGLE_OAUTH_ENABLED:
+                google_url = f"{API_URL.rstrip('/')}/auth/google/start"
+                st.markdown(f"""
+                <a href="{google_url}" target="_self" class="google-signin-btn">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo"/>
+                    Sign in with Google
+                </a>
+                """, unsafe_allow_html=True)
+
+            st.markdown('<div class="register-footer-text">Already have an account? <span class="link-span">Log in</span></div>', unsafe_allow_html=True)
+            if st.button("Log in to your account", key="btn_switch_login", type="secondary", use_container_width=True):
+                st.session_state.auth_mode = "Log in"
                 st.rerun()
-            except AtlasApiError as e:
-                st.error(str(e))
 
-        if GOOGLE_OAUTH_ENABLED:
-            st.divider()
-            st.link_button(
-                "Sign in with Google",
-                f"{API_URL.rstrip('/')}/auth/google/start",
-                type="secondary",
-            )
-            st.caption(
-                "Uses your Google account. If you already have an email/password account "
-                "with the same address, Google will be linked automatically."
-            )
+        elif st.session_state.auth_mode == "Verify email":
+            email = st.text_input("Email", placeholder="Enter your email address", key="verify_email")
+            verify_token = st.text_input("Verification token", value=default_verify, placeholder="Enter verification token", key="verify_token")
 
-    st.caption(
-        f"API: `{API_URL}` — tokens print to the API console when `ATLAS_EMAIL_BACKEND=console`."
-    )
+            if st.button("Verify email", type="primary", use_container_width=True, key="btn_verify_submit"):
+                if verify_token:
+                    try:
+                        auth_client.verify_email(verify_token)
+                        st.success("Email verified — you can log in now.")
+                        st.session_state.auth_mode = "Log in"
+                        st.rerun()
+                    except AtlasApiError as e:
+                        st.error(str(e))
+                else:
+                    st.error("Please enter verification token.")
+
+            if st.button("Resend verification email", type="secondary", use_container_width=True, key="btn_resend_verify") and email:
+                try:
+                    auth_client.request_verify(email)
+                    st.info("Verification email sent (check console if using console backend).")
+                except AtlasApiError as e:
+                    st.error(str(e))
+
+            if st.button("Back to Log in", key="btn_verify_back", type="secondary", use_container_width=True):
+                st.session_state.auth_mode = "Log in"
+                st.rerun()
+
+        elif st.session_state.auth_mode == "Forgot / reset password":
+            email = st.text_input("Email", placeholder="Enter your email address", key="forgot_email")
+            reset_token = st.text_input("Reset token (from email)", value=default_reset, placeholder="Enter reset token", key="reset_token")
+            new_password = st.text_input("New password", type="password", placeholder="Enter new password", key="reset_password")
+
+            col_forgot, col_reset = st.columns(2)
+            with col_forgot:
+                if st.button("Send reset email", type="secondary", use_container_width=True, key="btn_send_reset") and email:
+                    try:
+                        auth_client.forgot_password(email)
+                        st.info("Reset email sent (check console if using console backend).")
+                    except AtlasApiError as e:
+                        st.error(str(e))
+            with col_reset:
+                if st.button("Reset password", type="primary", use_container_width=True, key="btn_reset_submit"):
+                    if reset_token and new_password:
+                        try:
+                            auth_client.reset_password(reset_token, new_password)
+                            st.success("Password updated — log in with your new password.")
+                            st.session_state.auth_mode = "Log in"
+                            st.rerun()
+                        except AtlasApiError as e:
+                            st.error(str(e))
+                    else:
+                         st.error("Please fill in reset token and new password.")
+
+            if st.button("Back to Log in", key="btn_forgot_back", type="secondary", use_container_width=True):
+                st.session_state.auth_mode = "Log in"
+                st.rerun()
+
+        # Footer API info styled
+        st.markdown(f"""
+        <div class="api-footer-box">
+            <div class="api-footer-icon">&lt;/&gt;</div>
+            <div class="api-footer-text">
+                API: <span class="api-url-highlight">{API_URL}</span><br/>
+                — tokens print to the API console when <span class="console-highlight">ATLAS_EMAIL_BACKEND=console</span>.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     st.stop()
 
 api = AtlasClient(
@@ -236,7 +384,11 @@ else:
 
 # Sidebar: books + ingestion
 with st.sidebar:
-    st.header("📚 Your books")
+    st.markdown('<div class="sidebar-books-header">', unsafe_allow_html=True)
+    st.markdown('### 📚 Your books', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-section-desc">Create and manage your books and sources.</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
     if subjects_list:
         for s in subjects_list:
             slug = s["slug"]
@@ -250,19 +402,34 @@ with st.sidebar:
     else:
         st.caption("No books yet — create one below.")
 
-    with st.expander("New book", expanded=not subjects_list):
-        new_subject = st.text_input("Subject name", placeholder="ml, dl, rust…", key="new_subject_name")
-        if st.button("Create book", key="create_book") and new_subject.strip():
-            try:
-                created = api.create_subject(new_subject.strip())
-                st.session_state.active_subject = created["slug"]
-                clear_subject_caches()
-                st.rerun()
-            except AtlasApiError as e:
-                st.error(str(e))
+    if "show_new_book" not in st.session_state:
+        st.session_state.show_new_book = not subjects_list
+
+    if st.button("📝 Create a new book", key="toggle_new_book", use_container_width=True):
+        st.session_state.show_new_book = not st.session_state.show_new_book
+        st.rerun()
+
+    if st.session_state.show_new_book:
+        new_subject = st.text_input("Subject name", placeholder="e.g., ml, dl, rust...", key="new_subject_name", label_visibility="collapsed")
+        if st.button("+ Create book", key="create_book", type="primary", use_container_width=True):
+            if new_subject.strip():
+                try:
+                    created = api.create_subject(new_subject.strip())
+                    st.session_state.active_subject = created["slug"]
+                    clear_subject_caches()
+                    st.session_state.show_new_book = False
+                    st.rerun()
+                except AtlasApiError as e:
+                    st.error(str(e))
+            else:
+                st.error("Please enter a subject name.")
 
     st.divider()
-    st.header("Add sources")
+    st.markdown('<div class="sidebar-books-header">', unsafe_allow_html=True)
+    st.markdown('### 📁 Add sources', unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-section-desc">Add content from various sources to your book.</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
     if not book_ready:
         if not subjects_list:
             st.caption("Create your first book above to unlock adding sources.")
@@ -279,17 +446,24 @@ with st.sidebar:
             st.error(f"API unreachable ({e}). Start with: `uvicorn api.main:app --reload`")
             st.stop()
 
-    yt_url = st.text_input("Youtube URL / Transcript", disabled=not book_ready)
-    if st.button("Add", key="add_youtube_btn", disabled=not book_ready) and yt_url and book_ready:
+    # Section 1: YouTube
+    st.markdown('<div class="sidebar-section-header"><span class="section-icon green">🔗</span> YouTube URL / Transcript</div>', unsafe_allow_html=True)
+    col_input, col_btn = st.columns([3, 1])
+    with col_input:
+        yt_url = st.text_input("YouTube URL Input", placeholder="Paste YouTube URL or transcript...", key="yt_url_sidebar", label_visibility="collapsed", disabled=not book_ready)
+    with col_btn:
+        add_yt = st.button("Add", key="add_youtube_btn", disabled=not book_ready)
+
+    if add_yt and yt_url and book_ready:
         try:
             value = yt_url.strip()
-            # Allow pasting transcript text directly in this field.
             if _looks_like_url(value):
                 r = api.ingest_youtube(value, SUBJECT)
             else:
                 r = api.ingest_leetcode(value, SUBJECT)
             st.session_state.notes_cache = None
             st.success(f"Added {r['source']}")
+            st.rerun()
         except AtlasApiError as e:
             st.error(str(e))
             if "502" in str(e) or "blocked" in str(e).lower():
@@ -298,59 +472,73 @@ with st.sidebar:
                     "or upload a PDF/image instead."
                 )
 
+    # Section 2: PDF
+    st.markdown('<div class="sidebar-section-header"><span class="section-icon purple">📁</span> Upload PDF or Word (.docx)</div>', unsafe_allow_html=True)
     doc_file = st.file_uploader(
-        "Upload PDF or Word (.docx)",
+        "Upload PDF/Word",
         type=["pdf", "docx"],
         key="doc_upload",
         disabled=not book_ready,
+        label_visibility="collapsed"
     )
-    if doc_file is not None and st.button("Add", key="add_doc_btn", disabled=not book_ready) and book_ready:
-        try:
-            with st.spinner("Uploading and indexing document…"):
-                r = api.ingest_document_upload_async(doc_file.getvalue(), doc_file.name, SUBJECT)
-            st.session_state.notes_cache = None
-            st.success(f"Added {r['source']}")
-        except AtlasApiError as e:
-            if e.status_code in (502, 503, 504):
-                st.error(
-                    "Upload failed — the cloud server timed out or is waking up. "
-                    "Wait a minute and try again, or use a smaller file."
-                )
-            elif e.status_code == 503:
-                st.error(str(e))
-            else:
-                st.error(str(e))
+    if doc_file is not None:
+        if st.button("Add PDF/Word", key="add_doc_btn", type="primary", use_container_width=True, disabled=not book_ready):
+            try:
+                with st.spinner("Uploading and indexing document…"):
+                    r = api.ingest_document_upload_async(doc_file.getvalue(), doc_file.name, SUBJECT)
+                st.session_state.notes_cache = None
+                st.success(f"Added {r['source']}")
+                st.rerun()
+            except AtlasApiError as e:
+                if e.status_code in (502, 503, 504):
+                    st.error(
+                        "Upload failed — the cloud server timed out or is waking up. "
+                        "Wait a minute and try again, or use a smaller file."
+                    )
+                else:
+                    st.error(str(e))
 
+    # Section 3: OCR
+    st.markdown('<div class="sidebar-section-header"><span class="section-icon orange">📷</span> Upload Image (OCR)</div>', unsafe_allow_html=True)
     photo_file = st.file_uploader(
-        "Upload image (OCR)",
+        "Upload Image",
         type=["jpg", "jpeg", "png", "webp"],
         key="photo_upload",
         disabled=not book_ready,
+        label_visibility="collapsed"
     )
-    if photo_file is not None and st.button("Add", key="add_photo_btn", disabled=not book_ready) and book_ready:
-        try:
-            with st.spinner("Running OCR on image (this may take a minute)…"):
-                r = api.ingest_photo_upload_async(photo_file.getvalue(), photo_file.name, SUBJECT)
-            st.session_state.notes_cache = None
-            if r.get("status") == "ok":
-                st.success(f"Added {r['source']} (confidence {r['confidence']:.0%})")
-            else:
-                st.warning(f"Low confidence ({r['confidence']:.0%}) — queued (#{r['queue_id']})")
-        except AtlasApiError as e:
-            if e.status_code in (502, 503, 504):
-                st.error(
-                    "OCR failed — the cloud server timed out or is waking up. "
-                    "Wait a minute and try again."
-                )
-            else:
-                st.error(str(e))
+    if photo_file is not None:
+        if st.button("Add Image", key="add_photo_btn", type="primary", use_container_width=True, disabled=not book_ready):
+            try:
+                with st.spinner("Running OCR on image (this may take a minute)…"):
+                    r = api.ingest_photo_upload_async(photo_file.getvalue(), photo_file.name, SUBJECT)
+                st.session_state.notes_cache = None
+                if r.get("status") == "ok":
+                    st.success(f"Added {r['source']} (confidence {r['confidence']:.0%})")
+                else:
+                    st.warning(f"Low confidence ({r['confidence']:.0%}) — queued (# {r['queue_id']})")
+                st.rerun()
+            except AtlasApiError as e:
+                if e.status_code in (502, 503, 504):
+                    st.error(
+                        "OCR failed — the cloud server timed out or is waking up. "
+                        "Wait a minute and try again."
+                    )
+                else:
+                    st.error(str(e))
 
-    paste_text = st.text_area("Paste text", disabled=not book_ready)
-    st.caption("example: bullet points, leetcode questions, etc")
-    if st.button("Add", key="add_text_btn", disabled=not book_ready) and paste_text and book_ready:
-        r = api.ingest_leetcode(paste_text, SUBJECT)
-        st.session_state.notes_cache = None
-        st.success(f"Added {r['source']}")
+    # Section 4: Paste text
+    st.markdown('<div class="sidebar-section-header"><span class="section-icon blue">📝</span> Paste text</div>', unsafe_allow_html=True)
+    paste_text = st.text_area("Paste text here", placeholder="Type or paste your text here...", key="paste_text_sidebar", label_visibility="collapsed", disabled=not book_ready)
+    st.caption("Example: bullet points, lecture notes, questions, etc.")
+    if st.button("Add Text", key="add_text_btn", type="primary", use_container_width=True, disabled=not book_ready) and paste_text:
+        try:
+            r = api.ingest_leetcode(paste_text, SUBJECT)
+            st.session_state.notes_cache = None
+            st.success(f"Added {r['source']}")
+            st.rerun()
+        except AtlasApiError as e:
+            st.error(str(e))
 
     if book_ready:
         st.divider()
@@ -400,10 +588,89 @@ with st.sidebar:
             st.rerun()
 
 if not SUBJECT:
-    if not subjects_list:
-        st.info("Welcome! Create your first book in the sidebar (e.g. **ml**, **dl**), then add sources.")
-    else:
-        st.info("Click a book in the sidebar to view its notes, flashcards, and study tools.")
+    # Render the landing page dashboard
+    # 1. Header with logo and help button
+    st.markdown(f"""
+    <div class="main-header">
+        <div class="dashboard-logo-container">
+            <span class="dashboard-logo-icon">🗺️</span>
+            <span class="dashboard-logo-text">Atlas</span>
+        </div>
+        <a href="https://github.com/Meg-hanaa/Atlas" target="_blank" class="help-btn">
+            <span class="help-icon">❓</span> Help
+        </a>
+    </div>
+    <div class="dashboard-api-subtitle">
+        Create your first book in the sidebar or use our API: <span>{API_URL}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 2. Welcome card with books illustration
+    illustration_base64 = ""
+    ill_path = os.path.join(ROOT, "assets", "books_illustration.png")
+    if os.path.exists(ill_path):
+        with open(ill_path, "rb") as f:
+            illustration_base64 = base64.b64encode(f.read()).decode()
+
+    st.markdown(f"""
+    <div class="welcome-card">
+        <div class="welcome-card-content">
+            <div class="welcome-card-sparkle">✨</div>
+            <div class="welcome-card-title">Welcome to Atlas!</div>
+            <div class="welcome-card-desc">
+                Create your first book in the sidebar (e.g., ml, dl), then add sources to get started.
+            </div>
+        </div>
+        <div class="welcome-card-image-container">
+            <img src="data:image/png;base64,{illustration_base64}" class="welcome-card-image" alt="Books Illustration"/>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 3. How it works section
+    st.markdown("""
+    <div class="section-title">How it works</div>
+    <div class="how-it-works-grid">
+        <div class="step-card">
+            <div class="step-number-badge badge-purple">1</div>
+            <div class="step-icon-box">📖</div>
+            <div class="step-title">Create a book</div>
+            <div class="step-desc">Give your book a name to get started.</div>
+        </div>
+        <div class="step-arrow">&rarr;</div>
+        <div class="step-card">
+            <div class="step-number-badge badge-green">2</div>
+            <div class="step-icon-box">🔗</div>
+            <div class="step-title">Add sources</div>
+            <div class="step-desc">Add content from YouTube, PDFs, images, or text.</div>
+        </div>
+        <div class="step-arrow">&rarr;</div>
+        <div class="step-card">
+            <div class="step-number-badge badge-blue">3</div>
+            <div class="step-icon-box">🧠</div>
+            <div class="step-title">AI processes</div>
+            <div class="step-desc">Our AI will process and understand your content.</div>
+        </div>
+        <div class="step-arrow">&rarr;</div>
+        <div class="step-card">
+            <div class="step-number-badge badge-purple">4</div>
+            <div class="step-icon-box">⚡</div>
+            <div class="step-title">Learn & explore</div>
+            <div class="step-desc">Ask questions, get insights, and master your topics.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 4. Tip box
+    st.markdown("""
+    <div class="tip-banner">
+        <div class="tip-icon">💡</div>
+        <div class="tip-content">
+            <strong>Tip:</strong> Start with a clear subject name and add diverse sources for the best results.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.stop()
 
 summary = api.revision_today(SUBJECT)

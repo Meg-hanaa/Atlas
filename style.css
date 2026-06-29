@@ -1,0 +1,524 @@
+/* style.css - Atlas Premium Dark Theme overrides for Streamlit */
+
+/* Global style overrides */
+.stApp {
+    background-color: #0b0f19 !important;
+    color: #f3f4f6 !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #0b0f19;
+}
+::-webkit-scrollbar-thumb {
+    background: #1f2937;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #374151;
+}
+
+/* Streamlit Button overrides */
+button[data-testid="stBaseButton-primary"] {
+    background-color: #5850ec !important;
+    border-color: #5850ec !important;
+    color: #ffffff !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    padding: 10px 24px !important;
+    width: 100% !important;
+    transition: background-color 0.2s, transform 0.1s !important;
+}
+button[data-testid="stBaseButton-primary"]:hover {
+    background-color: #4f46e5 !important;
+    border-color: #4f46e5 !important;
+}
+button[data-testid="stBaseButton-primary"]:active {
+    transform: scale(0.98);
+}
+
+button[data-testid="stBaseButton-secondary"] {
+    background-color: #131924 !important;
+    border: 1px solid #1f2937 !important;
+    color: #f3f4f6 !important;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    transition: background-color 0.2s, color 0.2s !important;
+}
+button[data-testid="stBaseButton-secondary"]:hover {
+    background-color: #1c2436 !important;
+    color: #ffffff !important;
+    border-color: #374151 !important;
+}
+
+/* Sidebar Overrides */
+section[data-testid="stSidebar"] {
+    background-color: #131924 !important;
+    border-right: 1px solid #1f2937 !important;
+    padding: 10px !important;
+}
+section[data-testid="stSidebar"] .stMarkdown h2,
+section[data-testid="stSidebar"] .stMarkdown h1 {
+    color: #ffffff !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    margin-bottom: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+/* Form Input fields styling */
+div[data-testid="stTextInput"] input, 
+div[data-testid="stTextArea"] textarea {
+    background-color: #0f131a !important;
+    border: 1px solid #1f2937 !important;
+    color: #f3f4f6 !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+}
+div[data-testid="stTextInput"] input:focus, 
+div[data-testid="stTextArea"] textarea:focus {
+    border-color: #5850ec !important;
+    box-shadow: 0 0 0 2px rgba(88, 80, 236, 0.2) !important;
+}
+
+/* File upload zone overrides */
+div[data-testid="stFileUploader"] {
+    border: 2px dashed #1f2937 !important;
+    background-color: #0f131a !important;
+    border-radius: 8px !important;
+    padding: 15px !important;
+}
+div[data-testid="stFileUploader"] section {
+    background-color: transparent !important;
+}
+
+/* Radio button row alignment for Login mode selector */
+div[data-testid="stRadio"] {
+    background-color: #131924 !important;
+    border: 1px solid #1f2937 !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+    margin-bottom: 24px !important;
+}
+div[data-testid="stRadio"] label {
+    color: #9ca3af !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+}
+div[data-testid="stRadio"] label:hover {
+    color: #ffffff !important;
+}
+div[data-testid="stRadio"] [data-testid="stWidgetLabel"] {
+    display: none !important;
+}
+
+/* Login Screen Styles */
+.login-left-panel {
+    padding: 48px;
+    height: 100%;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-size: cover;
+    background-position: center;
+    min-height: 600px;
+    color: #ffffff;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+.brand-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.brand-icon {
+    font-size: 36px;
+}
+.brand-name {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: #ffffff;
+}
+.brand-subtitle {
+    font-size: 16px;
+    color: #9ca3af;
+    margin-bottom: 64px;
+}
+.features-list {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+.feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+.feature-icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+.purple-bg {
+    background-color: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+}
+.green-bg {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+}
+.blue-bg {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+}
+.feature-icon {
+    font-size: 22px;
+}
+.feature-text {
+    display: flex;
+    flex-direction: column;
+}
+.feature-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f9fafb;
+    margin-bottom: 4px;
+}
+.feature-desc {
+    font-size: 14px;
+    color: #9ca3af;
+    line-height: 1.5;
+}
+
+.login-right-header {
+    margin-bottom: 32px;
+}
+.login-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #ffffff !important;
+    margin-bottom: 8px !important;
+}
+.login-subtitle {
+    font-size: 15px;
+    color: #9ca3af;
+}
+
+.login-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 24px 0;
+    color: #4b5563;
+    font-size: 14px;
+}
+.login-divider::before, .login-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #1f2937;
+}
+.login-divider:not(:empty)::before {
+    margin-right: 1em;
+}
+.login-divider:not(:empty)::after {
+    margin-left: 1em;
+}
+
+.google-signin-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    background-color: #131924;
+    border: 1px solid #1f2937;
+    color: #ffffff;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    text-decoration: none !important;
+    transition: background-color 0.2s;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+.google-signin-btn:hover {
+    background-color: #1c2436;
+    color: #ffffff !important;
+    border-color: #374151;
+}
+.google-signin-btn img {
+    width: 18px;
+    height: 18px;
+    margin-right: 12px;
+}
+
+.register-footer-text {
+    text-align: center;
+    font-size: 14px;
+    color: #9ca3af;
+    margin-top: 24px;
+}
+.link-span {
+    color: #5850ec;
+    font-weight: 600;
+}
+
+.api-footer-box {
+    margin-top: 32px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background-color: #131924;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 16px;
+}
+.api-footer-icon {
+    background-color: rgba(88, 80, 236, 0.1);
+    color: #818cf8;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+.api-footer-text {
+    font-size: 13px;
+    color: #9ca3af;
+    line-height: 1.5;
+}
+.api-url-highlight {
+    color: #10b981;
+    font-family: monospace;
+}
+.console-highlight {
+    color: #10b981;
+    font-family: monospace;
+}
+
+/* Sidebar Custom Styling Classes */
+.sidebar-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    margin-top: 24px;
+    margin-bottom: 4px;
+}
+.sidebar-section-desc {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+.section-icon {
+    font-size: 16px;
+}
+.section-icon.green { color: #10b981; }
+.section-icon.purple { color: #8b5cf6; }
+.section-icon.blue { color: #3b82f6; }
+
+/* Dashboard Landing UI */
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid #1f2937;
+    margin-bottom: 24px;
+}
+.dashboard-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.dashboard-logo-icon {
+    font-size: 36px;
+}
+.dashboard-logo-text {
+    font-size: 32px;
+    font-weight: 700;
+    color: #ffffff;
+}
+.help-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #131924;
+    border: 1px solid #1f2937;
+    color: #9ca3af;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    text-decoration: none !important;
+    transition: background-color 0.2s, color 0.2s;
+    font-weight: 500;
+}
+.help-btn:hover {
+    background-color: #1c2436;
+    color: #ffffff !important;
+    border-color: #374151;
+}
+
+.dashboard-api-subtitle {
+    font-size: 14px;
+    color: #9ca3af;
+    margin-bottom: 28px;
+}
+.dashboard-api-subtitle span {
+    background-color: #131924;
+    border: 1px solid #1f2937;
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: #10b981;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+/* Welcome Card Landing */
+.welcome-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #131924;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    padding: 28px 40px;
+    margin-bottom: 36px;
+    position: relative;
+    overflow: hidden;
+}
+.welcome-card-content {
+    max-width: 65%;
+    z-index: 2;
+}
+.welcome-card-sparkle {
+    font-size: 32px;
+    margin-bottom: 12px;
+    color: #8b5cf6;
+    opacity: 0.9;
+}
+.welcome-card-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 8px;
+}
+.welcome-card-desc {
+    font-size: 14px;
+    color: #9ca3af;
+    line-height: 1.6;
+}
+.welcome-card-image-container {
+    width: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+.welcome-card-image {
+    max-width: 100%;
+    height: auto;
+}
+
+/* How It Works Container */
+.how-it-works-grid {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 36px;
+    width: 100%;
+}
+.step-card {
+    flex: 1;
+    background-color: #131924;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    padding: 28px 20px;
+    text-align: center;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+.step-number-badge {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.step-icon-box {
+    font-size: 32px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+.step-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 8px;
+}
+.step-desc {
+    font-size: 13px;
+    color: #9ca3af;
+    line-height: 1.5;
+}
+.step-arrow {
+    font-size: 20px;
+    color: #4b5563;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+/* Tip Banner Landing */
+.tip-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background-color: #131924;
+    border: 1px solid #1f2937;
+    border-radius: 10px;
+    padding: 20px 24px;
+}
+.tip-icon {
+    font-size: 28px;
+    color: #f59e0b;
+    flex-shrink: 0;
+}
+.tip-content {
+    font-size: 14px;
+    color: #9ca3af;
+    line-height: 1.5;
+}
+.tip-content strong {
+    color: #ffffff;
+}
