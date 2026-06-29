@@ -26,8 +26,25 @@ from voice.meta import format_session_cost
 
 st.set_page_config(page_title="Atlas", page_icon="🗺️", layout="wide")
 
-SUBJECT = get_subject()
 API_URL = os.getenv("ATLAS_API_URL", "http://127.0.0.1:8000")
+
+
+def clear_subject_caches():
+    st.session_state.notes_cache = None
+    st.session_state.roadmap_cache = None
+    st.session_state.graph_cache = None
+    st.session_state.graph_html = None
+    st.session_state.graph_stats = None
+    st.session_state.chat_history = []
+    st.session_state.current_card = None
+    st.session_state.interview_step = None
+    st.session_state.interview_audio = None
+    st.session_state.cross_cat_cache = None
+    st.session_state.analytics_cache = None
+    st.session_state.assessment = None
+    st.session_state.export_pdf = None
+    st.session_state.export_obsidian = None
+    st.session_state.export_anki = None
 
 
 def show_meta(
@@ -72,12 +89,18 @@ if "interview_audio" not in st.session_state:
     st.session_state.interview_audio = None
 if "auth_token" not in st.session_state:
     st.session_state.auth_token = None
+if "active_subject" not in st.session_state:
+    st.session_state.active_subject = get_subject()
 
 AUTH_DISABLED = os.getenv("ATLAS_AUTH_DISABLED", "").lower() in ("1", "true", "yes")
 GOOGLE_OAUTH_ENABLED = bool(os.getenv("ATLAS_GOOGLE_OAUTH_CLIENT_ID"))
 
 if not AUTH_DISABLED and not st.session_state.auth_token:
     oauth_token = st.query_params.get("oauth_token")
+    oauth_error = st.query_params.get("oauth_error")
+    if oauth_error:
+        st.error(f"Google sign-in failed: {oauth_error}")
+        st.query_params.clear()
     if oauth_token:
         st.session_state.auth_token = oauth_token
         st.query_params.clear()
@@ -173,58 +196,103 @@ api = AtlasClient(
     token=st.session_state.auth_token,
 )
 
-st.title("🗺️ Atlas")
-st.caption(f"Subject: `{SUBJECT}` · API: `{API_URL}`")
+try:
+    subjects_list = api.list_subjects().get("subjects", [])
+except AtlasApiError:
+    subjects_list = []
 
-# Sidebar: ingestion + config status
+subject_slugs = [s["slug"] for s in subjects_list]
+if subjects_list and st.session_state.active_subject not in subject_slugs:
+    st.session_state.active_subject = subjects_list[0]["slug"]
+
+SUBJECT = st.session_state.active_subject
+active_display = next(
+    (s.get("display_name") or s["slug"] for s in subjects_list if s["slug"] == SUBJECT),
+    SUBJECT,
+)
+
+st.title("🗺️ Atlas")
+st.caption(f"Book: **{active_display}** · API: `{API_URL}`")
+
+# Sidebar: books + ingestion
 with st.sidebar:
-    st.header("Ingest sources")
+    st.header("📚 Your books")
+    if subjects_list:
+        for s in subjects_list:
+            slug = s["slug"]
+            label = s.get("display_name") or slug
+            prefix = "▶ " if slug == SUBJECT else ""
+            if st.button(f"{prefix}{label}", key=f"book_{slug}", use_container_width=True):
+                if slug != SUBJECT:
+                    st.session_state.active_subject = slug
+                    clear_subject_caches()
+                    st.rerun()
+    else:
+        st.caption("No books yet — create one below.")
+
+    with st.expander("New book", expanded=not subjects_list):
+        new_subject = st.text_input("Subject name", placeholder="ml, dl, rust…", key="new_subject_name")
+        if st.button("Create book", key="create_book") and new_subject.strip():
+            try:
+                created = api.create_subject(new_subject.strip())
+                st.session_state.active_subject = created["slug"]
+                clear_subject_caches()
+                st.rerun()
+            except AtlasApiError as e:
+                st.error(str(e))
+
+    st.divider()
+    st.header("Add sources")
     try:
         health = api.health(SUBJECT)
-        if health.get("hindsight_ok"):
-            st.success("Hindsight connected")
-        else:
+        if not health.get("hindsight_ok"):
             st.error("Hindsight not configured — check `.env`")
             st.stop()
     except AtlasApiError as e:
         st.error(f"API unreachable ({e}). Start with: `uvicorn api.main:app --reload`")
         st.stop()
 
-    if st.button("Ingest demo sources", type="primary"):
-        with st.spinner("Ingesting YouTube, PDF, photos, LeetCode…"):
-            result = api.ingest_demo(SUBJECT)
-        st.session_state.notes_cache = None
-        st.success(f"Retained {result['retained_count']} chunks to Hindsight")
-        if result.get("queued_photos"):
-            st.warning(f"{result['queued_photos']} photo(s) queued for OCR review (low confidence)")
-        for err in result.get("errors", []):
-            st.warning(err)
-
-    st.divider()
-    st.subheader("Manual ingest")
     yt_url = st.text_input("YouTube URL")
-    if st.button("Ingest YouTube") and yt_url:
-        r = api.ingest_youtube(yt_url, SUBJECT)
-        st.success(f"Ingested {r['source']}")
+    if st.button("Add", key="add_youtube_btn") and yt_url:
+        try:
+            r = api.ingest_youtube(yt_url, SUBJECT)
+            st.session_state.notes_cache = None
+            st.success(f"Added {r['source']}")
+        except AtlasApiError as e:
+            st.error(str(e))
+            if "502" in str(e) or "blocked" in str(e).lower():
+                st.info(
+                    "YouTube blocks cloud servers. Paste a transcript as text, "
+                    "or upload a PDF/image instead."
+                )
 
-    pdf_path = st.text_input("PDF path")
-    if st.button("Ingest PDF") and pdf_path:
-        r = api.ingest_pdf(pdf_path, SUBJECT)
-        st.success(f"Ingested {r['source']}")
+    doc_file = st.file_uploader("Upload PDF or Word (.docx)", type=["pdf", "docx"], key="doc_upload")
+    if doc_file is not None and st.button("Add", key="add_doc_btn"):
+        try:
+            r = api.ingest_document_upload(doc_file.getvalue(), doc_file.name, SUBJECT)
+            st.session_state.notes_cache = None
+            st.success(f"Added {r['source']}")
+        except AtlasApiError as e:
+            st.error(str(e))
 
-    photo_path = st.text_input("Photo path")
-    if st.button("Ingest photo (OCR)") and photo_path:
-        r = api.ingest_photo(photo_path, SUBJECT)
-        if r.get("status") == "ok":
-            st.success(f"Ingested {r['source']} (confidence {r['confidence']:.0%})")
-        else:
-            st.warning(f"Low confidence ({r['confidence']:.0%}) — queued (#{r['queue_id']})")
+    photo_file = st.file_uploader("Upload image (OCR)", type=["jpg", "jpeg", "png", "webp"], key="photo_upload")
+    if photo_file is not None and st.button("Add", key="add_photo_btn"):
+        try:
+            r = api.ingest_photo_upload(photo_file.getvalue(), photo_file.name, SUBJECT)
+            st.session_state.notes_cache = None
+            if r.get("status") == "ok":
+                st.success(f"Added {r['source']} (confidence {r['confidence']:.0%})")
+            else:
+                st.warning(f"Low confidence ({r['confidence']:.0%}) — queued (#{r['queue_id']})")
+        except AtlasApiError as e:
+            st.error(str(e))
 
-    lc_text = st.text_area("LeetCode prompt")
-    lc_title = st.text_input("LeetCode title (optional)")
-    if st.button("Ingest LeetCode") and lc_text:
-        r = api.ingest_leetcode(lc_text, lc_title or None, SUBJECT)
-        st.success(f"Ingested {r['source']}")
+    paste_text = st.text_area("Paste text")
+    st.caption("example: bullet points, leetcode questions, etc")
+    if st.button("Add", key="add_text_btn") and paste_text:
+        r = api.ingest_leetcode(paste_text, SUBJECT)
+        st.session_state.notes_cache = None
+        st.success(f"Added {r['source']}")
 
     st.divider()
     st.subheader("OCR review queue")

@@ -93,16 +93,38 @@ class AtlasClient:
     def ingest_pdf(self, path: str, subject: str | None = None) -> dict:
         return self._call("post", "/ingest/pdf", params=self._params(subject), json={"path": path})
 
+    def ingest_document_upload(self, data: bytes, filename: str, subject: str | None = None) -> dict:
+        return self._call(
+            "post",
+            "/ingest/document/upload",
+            params=self._params(subject),
+            files={"file": (filename, data, "application/octet-stream")},
+        )
+
+    def ingest_photo_upload(self, data: bytes, filename: str, subject: str | None = None) -> dict:
+        return self._call(
+            "post",
+            "/ingest/photo/upload",
+            params=self._params(subject),
+            files={"file": (filename, data, "application/octet-stream")},
+        )
+
     def ingest_photo(self, path: str, subject: str | None = None) -> dict:
         return self._call("post", "/ingest/photo", params=self._params(subject), json={"path": path})
 
-    def ingest_leetcode(self, prompt: str, title: str | None = None, subject: str | None = None) -> dict:
+    def ingest_leetcode(self, prompt: str, subject: str | None = None) -> dict:
         return self._call(
             "post",
             "/ingest/leetcode",
             params=self._params(subject),
-            json={"prompt": prompt, "title": title},
+            json={"prompt": prompt},
         )
+
+    def list_subjects(self) -> dict:
+        return self._call("get", "/subjects")
+
+    def create_subject(self, name: str) -> dict:
+        return self._call("post", "/subjects", json={"name": name})
 
     def review_list(self, subject: str | None = None) -> list:
         return self._call("get", "/review-queue", params=self._params(subject))

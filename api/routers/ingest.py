@@ -21,10 +21,12 @@ from api.schemas import (
 )
 from api.services.ingest import ingest_all_demo
 from auth.deps import CurrentUser, user_id_from
+from ingest.docx_ingest import ingest_docx
 from ingest.leetcode_ingest import ingest_leetcode
 from ingest.pdf_ingest import ingest_pdf
 from ingest.photo_ocr_ingest import ingest_photo
 from ingest.youtube_ingest import ingest_youtube
+from core.subjects import ensure_subject
 from memory.bank import retain_ingested
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -40,9 +42,11 @@ def ingest_demo(user: CurrentUser, subject: str | None = None):
 @router.post("/youtube", response_model=IngestResult)
 def ingest_youtube_route(body: IngestYouTubeRequest, user: CurrentUser, subject: str | None = None):
     subj = resolve_subject(subject)
+    uid = user_id_from(user)
+    ensure_subject(uid, subj)
     try:
         chunk = ingest_youtube(body.url.strip(), subj)
-        retain_ingested(user_id_from(user), chunk)
+        retain_ingested(uid, chunk)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -67,12 +71,39 @@ def ingest_pdf_route(body: IngestPdfRequest, user: CurrentUser, subject: str | N
 async def ingest_pdf_upload(user: CurrentUser, subject: str | None = None, file: UploadFile = File(...)):
     subj = resolve_subject(subject)
     uid = user_id_from(user)
+    ensure_subject(uid, subj)
     suffix = os.path.splitext(file.filename or "upload.pdf")[1] or ".pdf"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(await file.read())
         path = tmp.name
     try:
         chunk = ingest_pdf(path, subj)
+        retain_ingested(uid, chunk)
+        return IngestResult(source=chunk["source"])
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+@router.post("/document/upload", response_model=IngestResult)
+async def ingest_document_upload(user: CurrentUser, subject: str | None = None, file: UploadFile = File(...)):
+    """Upload PDF or Word (.docx) from browser."""
+    subj = resolve_subject(subject)
+    uid = user_id_from(user)
+    ensure_subject(uid, subj)
+    suffix = (os.path.splitext(file.filename or "")[1] or ".pdf").lower()
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(await file.read())
+        path = tmp.name
+    try:
+        if suffix == ".pdf":
+            chunk = ingest_pdf(path, subj)
+        elif suffix == ".docx":
+            chunk = ingest_docx(path, subj)
+        else:
+            raise HTTPException(status_code=400, detail="Supported types: .pdf, .docx")
         retain_ingested(uid, chunk)
         return IngestResult(source=chunk["source"])
     finally:
@@ -104,6 +135,7 @@ def ingest_photo_route(body: IngestPhotoPathRequest, user: CurrentUser, subject:
 async def ingest_photo_upload(user: CurrentUser, subject: str | None = None, file: UploadFile = File(...)):
     subj = resolve_subject(subject)
     uid = user_id_from(user)
+    ensure_subject(uid, subj)
     suffix = os.path.splitext(file.filename or "upload.png")[1] or ".png"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(await file.read())
@@ -129,6 +161,8 @@ async def ingest_photo_upload(user: CurrentUser, subject: str | None = None, fil
 @router.post("/leetcode", response_model=IngestResult)
 def ingest_leetcode_route(body: IngestLeetcodeRequest, user: CurrentUser, subject: str | None = None):
     subj = resolve_subject(subject)
-    chunk = ingest_leetcode(body.prompt, subj, title=body.title)
-    retain_ingested(user_id_from(user), chunk)
+    uid = user_id_from(user)
+    ensure_subject(uid, subj)
+    chunk = ingest_leetcode(body.prompt, subj, title=None)
+    retain_ingested(uid, chunk)
     return IngestResult(source=chunk["source"])

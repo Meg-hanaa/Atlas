@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 
 from httpx_oauth.clients.google import GoogleOAuth2
+from urllib.parse import urlencode
 
 from auth.setup import AUTH_SECRET, APP_PUBLIC_URL
 
@@ -27,7 +28,8 @@ def google_callback_url() -> str:
 
 
 def google_post_login_url(access_token: str) -> str:
-    return f"{APP_PUBLIC_URL.rstrip('/')}?oauth_token={access_token}"
+    query = urlencode({"oauth_token": access_token})
+    return f"{APP_PUBLIC_URL.rstrip('/')}?{query}"
 
 
 def oauth_cookie_secure() -> bool:

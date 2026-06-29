@@ -23,6 +23,7 @@ from api.routers import (
     notes,
     review,
     roadmap,
+    subjects,
     voice,
 )
 from auth.deps import dev_user
@@ -84,6 +85,7 @@ app.include_router(
 if GOOGLE_OAUTH_ENABLED and google_oauth_client is not None:
     app.include_router(google_oauth_router)
 app.include_router(health.router)
+app.include_router(subjects.router)
 app.include_router(ingest.router)
 app.include_router(notes.router)
 app.include_router(concepts.router)

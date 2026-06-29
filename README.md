@@ -68,6 +68,17 @@ See [deploy/README.md](deploy/README.md). Caddy terminates TLS and proxies:
 docker compose up -d --build
 ```
 
+## Render (Blueprint)
+
+A [`render.yaml`](render.yaml) deploys both services in one step:
+
+1. [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
+2. Connect this repo — Render reads `render.yaml`
+3. Enter secret env vars when prompted (`sync: false` keys)
+4. Open **https://atlas-app-shnc.onrender.com** (Streamlit) and **https://atlas-api-9v91.onrender.com/docs** (API)
+
+Production URLs are set in `render.yaml`. Add both OAuth redirect URIs in Google Console (local + Render).
+
 ## Features
 
 ### Analytics dashboard
