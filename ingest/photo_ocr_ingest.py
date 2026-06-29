@@ -10,8 +10,6 @@ from datetime import datetime, timezone
 
 from monitoring.tracing import set_span_attributes, trace_span
 
-from config import ensure_groq_key
-
 logger = logging.getLogger(__name__)
 
 OCR_PROMPT = (
@@ -142,9 +140,12 @@ def _vision_call(path: str, prompt: str, prefer_groq: bool = False) -> str:
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
     order: list[tuple[str, str | None]]
+    groq_key = os.getenv("GROQ_API_KEY")
+    groq_key = groq_key if groq_key and not groq_key.startswith("your-") else None
+
     if prefer_groq:
         order = [
-            ("groq", ensure_groq_key()),
+            ("groq", groq_key),
             ("openai", openai_key if openai_key and not openai_key.startswith("your-") else None),
             ("anthropic", anthropic_key if anthropic_key and not anthropic_key.startswith("your-") else None),
         ]
@@ -152,7 +153,7 @@ def _vision_call(path: str, prompt: str, prefer_groq: bool = False) -> str:
         order = [
             ("openai", openai_key if openai_key and not openai_key.startswith("your-") else None),
             ("anthropic", anthropic_key if anthropic_key and not anthropic_key.startswith("your-") else None),
-            ("groq", ensure_groq_key()),
+            ("groq", groq_key),
         ]
 
     for provider, key in order:
@@ -180,9 +181,12 @@ def score_ocr_confidence(primary: str, secondary: str) -> tuple[float, str]:
     return ratio, reason
 
 
-def ingest_photo(path: str, subject: str, user_id: str) -> dict:
+def ingest_photo(path: str, subject: str, user_id: str, *, fast: bool = False) -> dict:
     """
     OCR a handwritten note with dual-pass confidence scoring.
+
+    When fast=True (browser uploads), run a single vision call to stay within
+    gateway timeouts; empty or very short text is queued for review.
 
     Returns either:
       {"status": "ok", "chunk": {...}, "confidence": float}
@@ -192,14 +196,22 @@ def ingest_photo(path: str, subject: str, user_id: str) -> dict:
     if not os.path.isfile(path):
         raise FileNotFoundError(f"Photo not found: {path}")
 
-    with trace_span("ingest.photo_ocr", {"path": path, "subject": subject}) as span:
-        logger.info("OCR pass 1", extra={"path": path, "ingest": "photo"})
+    with trace_span("ingest.photo_ocr", {"path": path, "subject": subject, "fast": fast}) as span:
+        logger.info("OCR pass 1", extra={"path": path, "ingest": "photo", "fast": fast})
         primary = _vision_call(path, OCR_PROMPT, prefer_groq=False)
 
-        logger.info("OCR pass 2 (independent)", extra={"path": path, "ingest": "photo"})
-        secondary = _vision_call(path, OCR_PROMPT_ALT, prefer_groq=True)
-
-        confidence, reason = score_ocr_confidence(primary, secondary)
+        if fast:
+            stripped = primary.strip()
+            if len(stripped) >= 20:
+                confidence, reason = 1.0, "upload_single_pass"
+                secondary = primary
+            else:
+                confidence, reason = 0.0, "upload_single_pass_empty"
+                secondary = ""
+        else:
+            logger.info("OCR pass 2 (independent)", extra={"path": path, "ingest": "photo"})
+            secondary = _vision_call(path, OCR_PROMPT_ALT, prefer_groq=True)
+            confidence, reason = score_ocr_confidence(primary, secondary)
         source = f"photo:{os.path.basename(path)}"
         date = datetime.now(timezone.utc).isoformat()
 

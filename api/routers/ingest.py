@@ -18,9 +18,11 @@ from api.schemas import (
     IngestPhotoPathRequest,
     IngestResult,
     IngestYouTubeRequest,
+    JobCreatedResponse,
 )
 from api.services.ingest import ingest_all_demo
 from auth.deps import CurrentUser, user_id_from
+from core.jobs import create_job, run_in_background
 from ingest.docx_ingest import ingest_docx
 from ingest.leetcode_ingest import ingest_leetcode
 from ingest.pdf_ingest import ingest_pdf
@@ -30,6 +32,47 @@ from core.subjects import ensure_subject
 from memory.bank import retain_ingested
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
+
+
+def _photo_result_payload(result: dict) -> dict:
+    if result["status"] == "ok":
+        return {"status": "ok", "source": result["chunk"]["source"], "confidence": result["confidence"]}
+    return {
+        "status": "queued",
+        "queue_id": result["queue_id"],
+        "confidence": result["confidence"],
+        "reason": result.get("reason"),
+    }
+
+
+def _run_photo_ingest(path: str, subj: str, uid: str) -> dict:
+    try:
+        result = ingest_photo(path, subj, uid, fast=True)
+        if result["status"] == "ok":
+            retain_ingested(uid, result["chunk"])
+        return _photo_result_payload(result)
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def _run_document_ingest(path: str, suffix: str, subj: str, uid: str) -> dict:
+    try:
+        if suffix == ".pdf":
+            chunk = ingest_pdf(path, subj)
+        elif suffix == ".docx":
+            chunk = ingest_docx(path, subj)
+        else:
+            raise ValueError("Supported types: .pdf, .docx")
+        retain_ingested(uid, chunk)
+        return {"status": "ok", "source": chunk["source"]}
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 
 @router.post("/demo", response_model=IngestDemoResponse)
@@ -94,23 +137,37 @@ async def ingest_document_upload(user: CurrentUser, subject: str | None = None, 
     uid = user_id_from(user)
     ensure_subject(uid, subj)
     suffix = (os.path.splitext(file.filename or "")[1] or ".pdf").lower()
+    if suffix not in (".pdf", ".docx"):
+        raise HTTPException(status_code=400, detail="Supported types: .pdf, .docx")
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(await file.read())
         path = tmp.name
     try:
-        if suffix == ".pdf":
-            chunk = ingest_pdf(path, subj)
-        elif suffix == ".docx":
-            chunk = ingest_docx(path, subj)
-        else:
-            raise HTTPException(status_code=400, detail="Supported types: .pdf, .docx")
-        retain_ingested(uid, chunk)
-        return IngestResult(source=chunk["source"])
-    finally:
-        try:
-            os.remove(path)
-        except OSError:
-            pass
+        return IngestResult(**_run_document_ingest(path, suffix, subj, uid))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Document upload ingest failed")
+        raise HTTPException(status_code=500, detail=f"Document ingest failed: {exc}") from exc
+
+
+@router.post("/document/upload/async", response_model=JobCreatedResponse)
+async def ingest_document_upload_async(
+    user: CurrentUser, subject: str | None = None, file: UploadFile = File(...)
+):
+    """Upload PDF/DOCX in a background job (avoids gateway timeouts on Render)."""
+    subj = resolve_subject(subject)
+    uid = user_id_from(user)
+    ensure_subject(uid, subj)
+    suffix = (os.path.splitext(file.filename or "")[1] or ".pdf").lower()
+    if suffix not in (".pdf", ".docx"):
+        raise HTTPException(status_code=400, detail="Supported types: .pdf, .docx")
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(await file.read())
+        path = tmp.name
+    job_id = create_job(uid, "ingest_document", {"subject": subj, "suffix": suffix})
+    run_in_background(job_id, lambda: _run_document_ingest(path, suffix, subj, uid))
+    return JobCreatedResponse(job_id=job_id)
 
 
 @router.post("/photo", response_model=dict)
@@ -141,21 +198,32 @@ async def ingest_photo_upload(user: CurrentUser, subject: str | None = None, fil
         tmp.write(await file.read())
         path = tmp.name
     try:
-        result = ingest_photo(path, subj, uid)
-        if result["status"] == "ok":
-            retain_ingested(uid, result["chunk"])
-            return {"status": "ok", "source": result["chunk"]["source"], "confidence": result["confidence"]}
-        return {
-            "status": "queued",
-            "queue_id": result["queue_id"],
-            "confidence": result["confidence"],
-            "reason": result.get("reason"),
-        }
-    finally:
-        try:
-            os.remove(path)
-        except OSError:
-            pass
+        return _run_photo_ingest(path, subj, uid)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc) or "OCR unavailable — set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GROQ_API_KEY on the API service.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Photo upload ingest failed")
+        raise HTTPException(status_code=500, detail=f"Photo ingest failed: {exc}") from exc
+
+
+@router.post("/photo/upload/async", response_model=JobCreatedResponse)
+async def ingest_photo_upload_async(
+    user: CurrentUser, subject: str | None = None, file: UploadFile = File(...)
+):
+    """OCR an uploaded image in a background job (avoids gateway timeouts on Render)."""
+    subj = resolve_subject(subject)
+    uid = user_id_from(user)
+    ensure_subject(uid, subj)
+    suffix = os.path.splitext(file.filename or "upload.png")[1] or ".png"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(await file.read())
+        path = tmp.name
+    job_id = create_job(uid, "ingest_photo", {"subject": subj})
+    run_in_background(job_id, lambda: _run_photo_ingest(path, subj, uid))
+    return JobCreatedResponse(job_id=job_id)
 
 
 @router.post("/leetcode", response_model=IngestResult)

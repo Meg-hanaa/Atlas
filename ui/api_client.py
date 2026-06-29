@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import os
+import time
 from typing import Any
 
 import httpx
@@ -49,11 +50,22 @@ class AtlasClient:
             detail = resp.json().get("detail", detail)
         except Exception:
             pass
+        if resp.status_code in (502, 503, 504) and ("<html" in detail.lower() or "<!doctype" in detail.lower()):
+            detail = (
+                "Service temporarily unavailable (gateway timeout). "
+                "The server may be waking up — try again in a minute."
+            )
         raise AtlasApiError(resp.status_code, str(detail))
 
     def _call(self, method: str, url: str, **kwargs) -> Any:
         headers = {**self._headers(), **kwargs.pop("headers", {})}
-        resp = getattr(self._client, method)(url, headers=headers, **kwargs)
+        retries = 2
+        for attempt in range(retries + 1):
+            resp = getattr(self._client, method)(url, headers=headers, **kwargs)
+            if resp.status_code not in (502, 503, 504) or attempt == retries:
+                return self._handle(resp)
+            # Render edge can return transient 502/503 during cold starts.
+            time.sleep(1.2 * (attempt + 1))
         return self._handle(resp)
 
     def login(self, email: str, password: str) -> str:
@@ -93,6 +105,14 @@ class AtlasClient:
     def ingest_pdf(self, path: str, subject: str | None = None) -> dict:
         return self._call("post", "/ingest/pdf", params=self._params(subject), json={"path": path})
 
+    def ingest_pdf_upload(self, data: bytes, filename: str, subject: str | None = None) -> dict:
+        return self._call(
+            "post",
+            "/ingest/pdf/upload",
+            params=self._params(subject),
+            files={"file": (filename, data, "application/octet-stream")},
+        )
+
     def ingest_document_upload(self, data: bytes, filename: str, subject: str | None = None) -> dict:
         return self._call(
             "post",
@@ -101,6 +121,15 @@ class AtlasClient:
             files={"file": (filename, data, "application/octet-stream")},
         )
 
+    def ingest_document_upload_async(self, data: bytes, filename: str, subject: str | None = None) -> dict:
+        job_id = self._call(
+            "post",
+            "/ingest/document/upload/async",
+            params=self._params(subject),
+            files={"file": (filename, data, "application/octet-stream")},
+        )["job_id"]
+        return self.wait_for_job(job_id, timeout=900.0)
+
     def ingest_photo_upload(self, data: bytes, filename: str, subject: str | None = None) -> dict:
         return self._call(
             "post",
@@ -108,6 +137,15 @@ class AtlasClient:
             params=self._params(subject),
             files={"file": (filename, data, "application/octet-stream")},
         )
+
+    def ingest_photo_upload_async(self, data: bytes, filename: str, subject: str | None = None) -> dict:
+        job_id = self._call(
+            "post",
+            "/ingest/photo/upload/async",
+            params=self._params(subject),
+            files={"file": (filename, data, "application/octet-stream")},
+        )["job_id"]
+        return self.wait_for_job(job_id, timeout=900.0)
 
     def ingest_photo(self, path: str, subject: str | None = None) -> dict:
         return self._call("post", "/ingest/photo", params=self._params(subject), json={"path": path})

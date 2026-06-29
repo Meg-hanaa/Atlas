@@ -19,7 +19,6 @@ if ROOT not in sys.path:
 
 import config  # noqa: F401 — SSL certs bootstrap
 
-from config import get_subject
 from routing.models import format_ai_meta
 from ui.api_client import AtlasApiError, AtlasClient
 from voice.meta import format_session_cost
@@ -90,7 +89,7 @@ if "interview_audio" not in st.session_state:
 if "auth_token" not in st.session_state:
     st.session_state.auth_token = None
 if "active_subject" not in st.session_state:
-    st.session_state.active_subject = get_subject()
+    st.session_state.active_subject = None
 
 AUTH_DISABLED = os.getenv("ATLAS_AUTH_DISABLED", "").lower() in ("1", "true", "yes")
 GOOGLE_OAUTH_ENABLED = bool(os.getenv("ATLAS_GOOGLE_OAUTH_CLIENT_ID"))
@@ -202,17 +201,29 @@ except AtlasApiError:
     subjects_list = []
 
 subject_slugs = [s["slug"] for s in subjects_list]
-if subjects_list and st.session_state.active_subject not in subject_slugs:
-    st.session_state.active_subject = subjects_list[0]["slug"]
+if st.session_state.active_subject and st.session_state.active_subject not in subject_slugs:
+    st.session_state.active_subject = None
+if not subjects_list:
+    st.session_state.active_subject = None
 
 SUBJECT = st.session_state.active_subject
-active_display = next(
-    (s.get("display_name") or s["slug"] for s in subjects_list if s["slug"] == SUBJECT),
-    SUBJECT,
+book_ready = SUBJECT is not None
+active_display = (
+    next(
+        (s.get("display_name") or s["slug"] for s in subjects_list if s["slug"] == SUBJECT),
+        SUBJECT,
+    )
+    if SUBJECT
+    else None
 )
 
 st.title("🗺️ Atlas")
-st.caption(f"Book: **{active_display}** · API: `{API_URL}`")
+if active_display:
+    st.caption(f"Book: **{active_display}** · API: `{API_URL}`")
+elif subjects_list:
+    st.caption(f"Select a book in the sidebar · API: `{API_URL}`")
+else:
+    st.caption(f"Create your first book in the sidebar · API: `{API_URL}`")
 
 # Sidebar: books + ingestion
 with st.sidebar:
@@ -243,17 +254,24 @@ with st.sidebar:
 
     st.divider()
     st.header("Add sources")
-    try:
-        health = api.health(SUBJECT)
-        if not health.get("hindsight_ok"):
-            st.error("Hindsight not configured — check `.env`")
-            st.stop()
-    except AtlasApiError as e:
-        st.error(f"API unreachable ({e}). Start with: `uvicorn api.main:app --reload`")
-        st.stop()
+    if not book_ready:
+        if not subjects_list:
+            st.caption("Create your first book above to unlock adding sources.")
+        else:
+            st.caption("Click a book above to enable adding sources.")
 
-    yt_url = st.text_input("YouTube URL")
-    if st.button("Add", key="add_youtube_btn") and yt_url:
+    if book_ready:
+        try:
+            health = api.health(SUBJECT)
+            if not health.get("hindsight_ok"):
+                st.error("Hindsight not configured — check `.env`")
+                st.stop()
+        except AtlasApiError as e:
+            st.error(f"API unreachable ({e}). Start with: `uvicorn api.main:app --reload`")
+            st.stop()
+
+    yt_url = st.text_input("Youtube URL / Transcript", disabled=not book_ready)
+    if st.button("Add", key="add_youtube_btn", disabled=not book_ready) and yt_url and book_ready:
         try:
             r = api.ingest_youtube(yt_url, SUBJECT)
             st.session_state.notes_cache = None
@@ -266,77 +284,113 @@ with st.sidebar:
                     "or upload a PDF/image instead."
                 )
 
-    doc_file = st.file_uploader("Upload PDF or Word (.docx)", type=["pdf", "docx"], key="doc_upload")
-    if doc_file is not None and st.button("Add", key="add_doc_btn"):
+    doc_file = st.file_uploader(
+        "Upload PDF or Word (.docx)",
+        type=["pdf", "docx"],
+        key="doc_upload",
+        disabled=not book_ready,
+    )
+    if doc_file is not None and st.button("Add", key="add_doc_btn", disabled=not book_ready) and book_ready:
         try:
-            r = api.ingest_document_upload(doc_file.getvalue(), doc_file.name, SUBJECT)
+            with st.spinner("Uploading and indexing document…"):
+                r = api.ingest_document_upload_async(doc_file.getvalue(), doc_file.name, SUBJECT)
             st.session_state.notes_cache = None
             st.success(f"Added {r['source']}")
         except AtlasApiError as e:
-            st.error(str(e))
+            if e.status_code in (502, 503, 504):
+                st.error(
+                    "Upload failed — the cloud server timed out or is waking up. "
+                    "Wait a minute and try again, or use a smaller file."
+                )
+            elif e.status_code == 503:
+                st.error(str(e))
+            else:
+                st.error(str(e))
 
-    photo_file = st.file_uploader("Upload image (OCR)", type=["jpg", "jpeg", "png", "webp"], key="photo_upload")
-    if photo_file is not None and st.button("Add", key="add_photo_btn"):
+    photo_file = st.file_uploader(
+        "Upload image (OCR)",
+        type=["jpg", "jpeg", "png", "webp"],
+        key="photo_upload",
+        disabled=not book_ready,
+    )
+    if photo_file is not None and st.button("Add", key="add_photo_btn", disabled=not book_ready) and book_ready:
         try:
-            r = api.ingest_photo_upload(photo_file.getvalue(), photo_file.name, SUBJECT)
+            with st.spinner("Running OCR on image (this may take a minute)…"):
+                r = api.ingest_photo_upload_async(photo_file.getvalue(), photo_file.name, SUBJECT)
             st.session_state.notes_cache = None
             if r.get("status") == "ok":
                 st.success(f"Added {r['source']} (confidence {r['confidence']:.0%})")
             else:
                 st.warning(f"Low confidence ({r['confidence']:.0%}) — queued (#{r['queue_id']})")
         except AtlasApiError as e:
-            st.error(str(e))
+            if e.status_code in (502, 503, 504):
+                st.error(
+                    "OCR failed — the cloud server timed out or is waking up. "
+                    "Wait a minute and try again."
+                )
+            else:
+                st.error(str(e))
 
-    paste_text = st.text_area("Paste text")
+    paste_text = st.text_area("Paste text", disabled=not book_ready)
     st.caption("example: bullet points, leetcode questions, etc")
-    if st.button("Add", key="add_text_btn") and paste_text:
+    if st.button("Add", key="add_text_btn", disabled=not book_ready) and paste_text and book_ready:
         r = api.ingest_leetcode(paste_text, SUBJECT)
         st.session_state.notes_cache = None
         st.success(f"Added {r['source']}")
 
-    st.divider()
-    st.subheader("OCR review queue")
-    pending = api.review_list(SUBJECT)
-    if pending:
-        st.caption(f"{len(pending)} item(s) awaiting approval")
-        for item in pending[:5]:
-            with st.expander(f"#{item['id']} {item['source']} ({item['confidence']:.0%})"):
-                st.markdown(f"**Reason:** {item['reason']}")
-                st.text_area("Pass 1", item["transcription"], key=f"p1_{item['id']}", height=100)
-                if item.get("alt_transcription"):
-                    st.text_area("Pass 2", item["alt_transcription"], key=f"p2_{item['id']}", height=100)
-                edited = st.text_area(
-                    "Edit before approve",
-                    item["transcription"],
-                    key=f"edit_{item['id']}",
-                    height=120,
-                )
-                c1, c2 = st.columns(2)
-                if c1.button("Approve", key=f"ok_{item['id']}"):
-                    api.review_approve(item["id"], edited, SUBJECT)
-                    st.success(f"Approved and retained {item['source']}")
-                    st.rerun()
-                if c2.button("Reject", key=f"no_{item['id']}"):
-                    api.review_reject(item["id"])
-                    st.info("Rejected")
-                    st.rerun()
-    else:
-        st.caption("No pending OCR reviews")
+    if book_ready:
+        st.divider()
+        st.subheader("OCR review queue")
+        pending = api.review_list(SUBJECT)
+        if pending:
+            st.caption(f"{len(pending)} item(s) awaiting approval")
+            for item in pending[:5]:
+                with st.expander(f"#{item['id']} {item['source']} ({item['confidence']:.0%})"):
+                    st.markdown(f"**Reason:** {item['reason']}")
+                    st.text_area("Pass 1", item["transcription"], key=f"p1_{item['id']}", height=100)
+                    if item.get("alt_transcription"):
+                        st.text_area("Pass 2", item["alt_transcription"], key=f"p2_{item['id']}", height=100)
+                    edited = st.text_area(
+                        "Edit before approve",
+                        item["transcription"],
+                        key=f"edit_{item['id']}",
+                        height=120,
+                    )
+                    c1, c2 = st.columns(2)
+                    if c1.button("Approve", key=f"ok_{item['id']}"):
+                        api.review_approve(item["id"], edited, SUBJECT)
+                        st.success(f"Approved and retained {item['source']}")
+                        st.rerun()
+                    if c2.button("Reject", key=f"no_{item['id']}"):
+                        api.review_reject(item["id"])
+                        st.info("Rejected")
+                        st.rerun()
+        else:
+            st.caption("No pending OCR reviews")
 
-    st.divider()
-    if st.button("Refresh consolidated notes"):
-        st.session_state.notes_cache = None
-    if st.button("Seed concepts → scheduler"):
-        r = api.seed_concepts(SUBJECT)
-        st.success(f"Seeded {r['seeded']} new concepts")
-    if st.button("Seed SYNTHETIC demo reviews"):
-        r = api.seed_demo_reviews(SUBJECT)
-        st.info(r.get("message", "Done"))
+        st.divider()
+        if st.button("Refresh consolidated notes"):
+            st.session_state.notes_cache = None
+        if st.button("Seed concepts → scheduler"):
+            r = api.seed_concepts(SUBJECT)
+            st.success(f"Seeded {r['seeded']} new concepts")
+        if st.button("Seed SYNTHETIC demo reviews"):
+            r = api.seed_demo_reviews(SUBJECT)
+            st.info(r.get("message", "Done"))
 
     if st.session_state.auth_token:
         if st.button("Log out"):
             st.session_state.auth_token = None
+            st.session_state.active_subject = None
+            clear_subject_caches()
             st.rerun()
+
+if not SUBJECT:
+    if not subjects_list:
+        st.info("Welcome! Create your first book in the sidebar (e.g. **ml**, **dl**), then add sources.")
+    else:
+        st.info("Click a book in the sidebar to view its notes, flashcards, and study tools.")
+    st.stop()
 
 summary = api.revision_today(SUBJECT)
 col1, col2, col3 = st.columns(3)

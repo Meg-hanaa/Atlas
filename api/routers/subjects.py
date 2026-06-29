@@ -19,14 +19,7 @@ class CreateSubjectRequest(BaseModel):
 @router.get("")
 def get_subjects(user: CurrentUser):
     uid = user_id_from(user)
-    subjects = list_subjects(uid)
-    if not subjects:
-        from config import DEFAULT_SUBJECT
-
-        default = add_subject(uid, DEFAULT_SUBJECT)
-        ensure_bank(uid, default["slug"])
-        subjects = [default]
-    return {"subjects": subjects}
+    return {"subjects": list_subjects(uid)}
 
 
 @router.post("")

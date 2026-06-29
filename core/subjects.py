@@ -9,6 +9,9 @@ from datetime import datetime, timezone
 from core.db import connect
 from core.scope import normalize_user_id
 
+# Legacy auto-seeded test subject — hidden from the bookshelf UI.
+LEGACY_HIDDEN_SUBJECTS = frozenset({"ml-notes"})
+
 _TABLE = """
 CREATE TABLE IF NOT EXISTS user_subjects (
     user_id TEXT NOT NULL,
@@ -42,7 +45,8 @@ def list_subjects(user_id: str) -> list[dict]:
         (uid,),
     ).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    subjects = [dict(r) for r in rows]
+    return [s for s in subjects if s["slug"] not in LEGACY_HIDDEN_SUBJECTS]
 
 
 def add_subject(user_id: str, name: str) -> dict:

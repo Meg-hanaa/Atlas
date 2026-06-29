@@ -36,6 +36,18 @@ def test_low_confidence_queues_for_review(mock_vision, tmp_path):
 
 
 @patch("ingest.photo_ocr_ingest._vision_call")
+def test_fast_mode_single_pass(mock_vision, tmp_path):
+    img = tmp_path / "upload.png"
+    img.write_bytes(b"fake")
+    text = "Enough handwritten content for upload single pass mode."
+    mock_vision.return_value = text
+    result = ingest_photo(str(img), "test-subject", UID, fast=True)
+    assert result["status"] == "ok"
+    assert result["chunk"]["content"] == text
+    assert mock_vision.call_count == 1
+
+
+@patch("ingest.photo_ocr_ingest._vision_call")
 def test_high_confidence_returns_chunk(mock_vision, tmp_path):
     img = tmp_path / "good.png"
     img.write_bytes(b"fake")
